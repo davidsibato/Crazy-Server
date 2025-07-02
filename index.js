@@ -8,70 +8,40 @@ const wss = new WebSocket.Server({ server });
 
 let waitingPlayers = [];
 
-function normalizeIP(ip) {
-    return ip.replace('::ffff:', '').replace('::1', '127.0.0.1');
-}
-
-app.get('/', (_, res) => {
-    res.json({
-        status: 'ok',
-        activeConnections: wss.clients.size,
-        waiting: waitingPlayers.length
-    });
-});
+app.get('/', (_, res) => res.send('OK')); // health check
 
 wss.on('connection', (ws, req) => {
-    const ip = normalizeIP(req.headers['x-forwarded-for'] || req.socket.remoteAddress);
-    console.log(`[Matchmaking] Player connected: ${ip}`);
+  const ip = req.socket.remoteAddress.replace('::ffff:', '');
+  console.log(`[Matchmaking] Player connected: ${ip}`);
 
-    ws.isAlive = true;
+  ws.on('message', (msg) => {
+    const message = msg.toString();
+    console.log(`[Matchmaking] Received: ${message} from ${ip}`);
 
-    ws.on('error', (error) => {
-        console.error(`[ERROR] WebSocket (${ip}):`, error);
-    });
+    if (message === 'find-match') {
+      waitingPlayers.push(ws);
 
-    ws.on('message', (msg) => {
-        const message = msg.toString();
-        console.log(`[Matchmaking] Received: ${message} from ${ip}`);
+      if (waitingPlayers.length >= 2) {
+        const host = waitingPlayers.shift();
+        const client = waitingPlayers.shift();
 
-        if (message === 'find-match') {
-            waitingPlayers.push(ws);
+        let hostIP = host._socket.remoteAddress.replace('::ffff:', '');
+        if (hostIP === '::1') hostIP = '127.0.0.1';
 
-            if (waitingPlayers.length >= 2) {
-                const host = waitingPlayers.shift();
-                const client = waitingPlayers.shift();
+        host.send(`role:host`);
+        client.send(`role:client:${hostIP}`);
 
-                const hostIP = normalizeIP(host._socket.remoteAddress);
+        console.log(`[Matchmaking] Matched: Host = ${hostIP}, Client = ${ip}`);
+      }
+    }
+  });
 
-                host.send('role:host');
-                client.send(`role:client:${hostIP}`);
-
-                console.log(`[Matchmaking] Matched: Host = ${hostIP}, Client = ${ip}`);
-            } else {
-                console.log(`[Matchmaking] Waiting for opponent...`);
-            }
-        }
-
-        if (message === 'ping') {
-            ws.send('pong');
-        }
-    });
-
-    ws.on('close', () => {
-        waitingPlayers = waitingPlayers.filter(p => p !== ws);
-    });
+  ws.on('close', () => {
+    waitingPlayers = waitingPlayers.filter(p => p !== ws);
+  });
 });
-
-// Heartbeat ping
-setInterval(() => {
-    wss.clients.forEach(ws => {
-        if (!ws.isAlive) return ws.terminate();
-        ws.isAlive = false;
-        ws.ping();
-    });
-}, 30000);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`✅ WebSocket Matchmaker running on port ${PORT}`);
+  console.log(`✅ WebSocket Matchmaker running on port ${PORT}`);
 });
