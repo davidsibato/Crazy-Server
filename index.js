@@ -11,9 +11,12 @@ let waitingPlayers = [];
 app.get('/', (_, res) => res.send('OK')); // health check
 
 wss.on('connection', (ws, req) => {
-  const ip = req.socket.remoteAddress.replace('::ffff:', '');
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   console.log(`[Matchmaking] Player connected: ${ip}`);
 
+  ws.on('error', (error) => {
+    console.error(`[ERROR] WebSocket Error (${ip}):`, error);
+  });
   ws.on('message', (msg) => {
     const message = msg.toString();
     console.log(`[Matchmaking] Received: ${message} from ${ip}`);
@@ -44,4 +47,7 @@ wss.on('connection', (ws, req) => {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`✅ WebSocket Matchmaker running on port ${PORT}`);
+  console.log("Environment:", process.env.NODE_ENV);
+console.log("WebSocket Server listening on port:", PORT);
+console.log("Trust proxy:", process.env.TRUST_PROXY || false);
 });
