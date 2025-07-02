@@ -8,8 +8,13 @@ const wss = new WebSocket.Server({ server });
 
 let waitingPlayers = [];
 
-app.get('/', (_, res) => res.send('OK')); // health check
-
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        connections: wss.clients.size,
+        waiting: waitingPlayers.length
+    });
+});
 wss.on('connection', (ws, req) => {
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   console.log(`[Matchmaking] Player connected: ${ip}`);
