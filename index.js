@@ -18,6 +18,11 @@ app.get('/', (_, res) => {
 wss.on('connection', (ws, req) => {
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   console.log(`[Matchmaking] Player connected: ${ip}`);
+  
+  // Add ping/pong to keep connection alive
+  ws.isAlive = true;
+  ws.on('pong', () => ws.isAlive = true);
+
 
   ws.on('error', (error) => {
     console.error(`[ERROR] WebSocket Error (${ip}):`, error);
@@ -43,6 +48,13 @@ wss.on('connection', (ws, req) => {
       }
     }
   });
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (!ws.isAlive) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
 
   ws.on('close', () => {
     waitingPlayers = waitingPlayers.filter(p => p !== ws);
