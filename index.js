@@ -21,9 +21,6 @@ wss.on('connection', (ws, req) => {
   
   // Add ping/pong to keep connection alive
   ws.isAlive = true;
-  ws.on('pong', () => ws.isAlive = true);
-
-
   ws.on('error', (error) => {
     console.error(`[ERROR] WebSocket Error (${ip}):`, error);
   });
@@ -47,6 +44,10 @@ wss.on('connection', (ws, req) => {
         console.log(`[Matchmaking] Matched: Host = ${hostIP}, Client = ${ip}`);
       }
     }
+    if (message.toString() === 'ping') {
+            ws.send('pong');
+            return;
+        }
   });
 setInterval(() => {
   wss.clients.forEach(ws => {
