@@ -8,7 +8,7 @@ const wss = new WebSocket.Server({ server });
 
 let waitingPlayers = [];
 
-app.get('/health', (req, res) => {
+app.get('/', (_, res) => {
     res.json({
         status: 'ok',
         connections: wss.clients.size,
